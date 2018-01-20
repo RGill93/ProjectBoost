@@ -1,16 +1,52 @@
 ﻿using System;
 using System.Collections;
 using System.Collections.Generic;
+using UnityEngine.SceneManagement;
 using UnityEngine;
 
 public class Rocket : MonoBehaviour
-{   
+{
 
+    /** 
+     * these handle the rocket thrust and movement
+     * also handles a level load delay
+     * @see StartLevelCompleteSequence() and StartDeathSequence()
+     * @see Thrust() and Rotate()
+     */
     [SerializeField] float rcsThrust = 100f;
     [SerializeField] float MainThrust = 100f;
+    [SerializeField] float LevelLoadDelay = 2f;
+
+    /** 
+     * these handle the sound
+     * @see StartLevelCompleteSequence() and StartDeathSequence()
+     */
+    [SerializeField] AudioClip MainEngine;
+    [SerializeField] AudioClip LevelComplete;
+    [SerializeField] AudioClip DeathSound;      
+
+    /**
+     * Particle systems the rocket will have upon 
+     * either death or completion
+     * "MainEngine" refers to when the character is playing
+     */
+    [SerializeField] ParticleSystem MainEngineParticles;
+    [SerializeField] ParticleSystem LevelCompleteParticles;
+    [SerializeField] ParticleSystem DeathParticles;    
 
     Rigidbody rigidBody;
     AudioSource audioSource;
+
+    enum State
+    {
+        Alive,
+
+        Dying,
+
+        Transending
+    }
+
+    State state = State.Alive;
 
 	// Use this for initialization
 	void Start()
@@ -22,38 +58,91 @@ public class Rocket : MonoBehaviour
 	// Update is called once per frame
 	void Update()
     {
-        Thrust();
-        Rotate();
-	}
+        if(state == State.Alive)
+        {
+            Thrust();
+            Rotate();
+        }        
+	}   
 
+    /*A function to handle all the collision*/
     private void OnCollisionEnter(Collision collision)
     {
-        switch(collision.gameObject.tag)
+        // ignore collision when dead
+        if(state != State.Alive)
         {
-            case "Friendly":
-                Console.WriteLine("okay");
-                break;            
+            return;
+        }
+
+        switch(collision.gameObject.tag)
+        {        
+            case "Friendly":               
+                break;
+            case "Finish":
+                StartLevelCompleteSequence();
+                break;
             default:
-                Console.WriteLine("Dead");
+                StartDeathSequence();
                 break;
         }
+        
     }
 
+    /*A Method for handling the level completion sequence*/
+    private void StartLevelCompleteSequence()
+    {
+        state = State.Transending;
+        audioSource.Stop();
+        audioSource.PlayOneShot(LevelComplete);
+        LevelCompleteParticles.Play();
+        Invoke("LoadNextLevel", LevelLoadDelay);
+    }
+
+    /*A Method for handling the level death sequence*/
+    private void StartDeathSequence()
+    {
+        state = State.Dying;
+        audioSource.Stop();
+        audioSource.PlayOneShot(DeathSound);
+        DeathParticles.Play();
+        Invoke("LoadFirstLevel", LevelLoadDelay);
+    }
+
+    /*A function for loading the level on completion*/
+    private void LoadNextLevel()
+    {
+        SceneManager.LoadScene(1); // allow for more than 2 levels       
+    }
+
+    /*A function for loading the first level on death*/
+    private void LoadFirstLevel()
+    {
+        SceneManager.LoadScene(0);        
+    }
+  
     private void Thrust()
     {
         if (Input.GetKey(KeyCode.Space))
         {
-            rigidBody.AddRelativeForce(Vector3.up * MainThrust);
-            if (!audioSource.isPlaying)
-            {
-                audioSource.Play();
-            }
+            ApplyThrust();
         }
         else
         {
             audioSource.Stop();
+            MainEngineParticles.Stop();
         }
     }
+
+    private void ApplyThrust()
+    {
+        rigidBody.AddRelativeForce(Vector3.up * MainThrust * Time.deltaTime);
+        if (!audioSource.isPlaying)
+        {
+            audioSource.PlayOneShot(MainEngine);
+        }
+        MainEngineParticles.Play();
+    }
+
 
     /*
      * A function to handle the rocket input movement
