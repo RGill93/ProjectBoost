@@ -48,6 +48,8 @@ public class Rocket : MonoBehaviour
 
     State state = State.Alive;
 
+    bool CollisionsDisabled = false;
+
 	// Use this for initialization
 	void Start()
     {
@@ -62,14 +64,31 @@ public class Rocket : MonoBehaviour
         {
             Thrust();
             Rotate();
-        }        
-	}   
+        }
+
+        if (Debug.isDebugBuild)
+        {
+            RespondToDebugKeys();
+        }
+	}
+
+    private void RespondToDebugKeys()
+    {
+        if (Input.GetKeyDown(KeyCode.L))
+        {
+            LoadNextLevel();
+        }
+        else if(Input.GetKeyDown(KeyCode.C))
+        {
+            CollisionsDisabled = !CollisionsDisabled;
+        }
+    }
 
     /*A function to handle all the collision*/
     private void OnCollisionEnter(Collision collision)
     {
         // ignore collision when dead
-        if(state != State.Alive)
+        if(state != State.Alive || CollisionsDisabled)
         {
             return;
         }
@@ -111,7 +130,15 @@ public class Rocket : MonoBehaviour
     /*A function for loading the level on completion*/
     private void LoadNextLevel()
     {
-        SceneManager.LoadScene(1); // allow for more than 2 levels       
+        int CurrentSceneIndex = SceneManager.GetActiveScene().buildIndex;
+        int NextSceneIndex = CurrentSceneIndex + 1;
+
+        if(NextSceneIndex == SceneManager.sceneCountInBuildSettings)
+        {
+            NextSceneIndex = 0; // loops back to start
+        }
+
+        SceneManager.LoadScene(NextSceneIndex);       
     }
 
     /*A function for loading the first level on death*/
